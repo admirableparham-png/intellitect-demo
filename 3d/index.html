@@ -107,7 +107,7 @@ async function drawOverlays(){if(!viewer)return;ents.forEach(e=>viewer.entities.
   let n=0;for(const q of LOC.dm_entrances){if(q.d>170)continue;n++;let gh=await groundHeight(q.g[0],q.g[1]);if(gh==null)gh=g;
     ents.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(q.g[0],q.g[1],gh+1.5),point:{pixelSize:9,color:Cesium.Color.fromCssColorString("#d98a1a"),outlineColor:Cesium.Color.BLACK,outlineWidth:1},label:{text:q.makani||"",font:"11px monospace",pixelOffset:new Cesium.Cartesian2(0,-14),fillColor:Cesium.Color.BLACK,showBackground:true,backgroundColor:Cesium.Color.fromCssColorString("#fff3df").withAlpha(0.9),scaleByDistance:new Cesium.NearFarScalar(100,1,600,0.4)},description:`DM entrance ${q.id}, Makani ${q.makani}, DLTM E ${q.dltm?q.dltm[0].toFixed(3):"?"} N ${q.dltm?q.dltm[1].toFixed(3):"?"}`}))}
   $("#dm").textContent=`${n} DM entrance points within 170 m (${LOC.dm_communities.join(", ")||"community not stated"})`;
-  $("#centre").textContent=`${clat.toFixed(6)}° N, ${clon.toFixed(6)}° E · ground ${g.toFixed(1)} m (sampled from the tiles)`;updateSun()}
+  $("#centre").textContent=`${clat.toFixed(6)}° N, ${clon.toFixed(6)}° E · ground ${g.toFixed(1)} m on the WGS 84 ellipsoid (sampled from the terrain tiles; not height above sea level, which Cesium's terrain does not give here)`;updateSun()}
 function updateSun(){const t=dubaiUTC();const ring=plotRing(LOC);const [clon,clat]=centroid(ring);const p=sunPos(t,clat,clon);
   if(viewer){viewer.clock.currentTime=Cesium.JulianDate.fromDate(t);viewer.scene.requestRender()}
   $("#sun").textContent=`${$("#date").value} ${hhmm(state.hour)} · azimuth ${p.az.toFixed(1)}° · elevation ${p.el.toFixed(1)}°${p.el<=0?" (night)":""}`;
