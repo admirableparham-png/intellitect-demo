@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intellitect M1 · 3D basemap</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.130.0/Build/Cesium/Widgets/widgets.css">
+<style>
+:root{--bg:#f6f4ef;--paper:#fffdf9;--fg:#1d2430;--muted:#5d6675;--line:#d9d4c8;--accent:#13406b;--amber:#b86a00;--red:#9b2c2c;--mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;--body:"IBM Plex Sans",system-ui,sans-serif}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font-family:var(--body);color:var(--fg);background:var(--bg);display:grid;grid-template-rows:auto 1fr;font-size:14px}
+header{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;background:var(--paper)}
+header h1{font-size:1rem;margin:0;font-weight:600}
+header .small{font-size:.78rem;color:var(--muted)}
+main{display:grid;grid-template-columns:1fr 340px;min-height:0}
+@media (max-width:900px){main{grid-template-columns:1fr;grid-template-rows:60vh auto}}
+#c{min-height:300px;position:relative}
+aside{border-left:1px solid var(--line);background:var(--paper);padding:12px 14px;overflow:auto;display:grid;gap:10px;align-content:start}
+h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:6px 0 2px}
+label{font-size:.82rem}
+input[type=text],input[type=password],input[type=date]{width:100%;font-family:var(--mono);font-size:.82rem;padding:6px 8px;border:1px solid var(--line);border-radius:3px}
+input[type=range]{width:100%}
+button{font-family:var(--body);font-size:.82rem;padding:5px 10px;border-radius:3px;border:1px solid var(--accent);background:var(--paper);color:var(--accent);cursor:pointer}
+button.primary{background:var(--accent);color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:.82rem}.kv div:nth-child(odd){color:var(--muted)}
+.mono{font-family:var(--mono);font-size:.8rem}
+.note{font-size:.78rem;color:var(--muted);line-height:1.4}
+.warn{font-size:.8rem;color:var(--red);border:1px solid var(--red);padding:6px 8px;border-radius:3px}
+#status{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.cesium-viewer-bottom{font-size:11px}
+.sources{position:absolute;left:8px;bottom:36px;background:rgba(255,253,249,.9);border:1px solid var(--line);border-radius:3px;padding:4px 8px;font-size:11px;color:var(--fg);max-width:420px;z-index:2}
+</style>
+</head>
+<body>
+<header>
+  <h1>Intellitect M1 · plot, context and massing on a live 3D basemap</h1>
+  <span class="small">w3turn · demo on public plots only · For information; not for permit or construction; verify with a licensed consultant</span>
+</header>
+<main>
+  <div id="c"><div class="sources" id="sources" hidden></div></div>
+  <aside>
+    <h3>3D basemap provider</h3>
+    <div class="row"><label><input type="radio" name="prov" value="ion" checked> Cesium ion: aerial imagery on real terrain, OSM buildings where mapped</label></div>
+    <div class="row"><label><input type="radio" name="prov" value="google"> Google Photorealistic 3D Tiles (no 3D coverage for the UAE as of 2026-10-27; kept for the day it arrives)</label></div>
+    <div class="note" id="provNote">Cesium ion access token: create a free account at cesium.com, copy the default token. The token stays in this browser only.</div>
+    <input type="password" id="key" placeholder="paste token or key, then Load">
+    <div class="row"><button id="load" class="primary">Load 3D</button><button id="forget">Forget</button><span id="status">idle</span></div>
+    <h3>Location</h3>
+    <div class="row" id="locs"></div>
+    <div class="row"><input type="text" id="makani" placeholder="Makani, e.g. 19060 78122" style="width:170px"><button id="makaniGo">Find</button></div>
+    <h3>Massing on the plot <span class="mono">[assumption]</span></h3>
+    <div class="row"><label for="storeys">Storeys</label><input type="range" id="storeys" min="0" max="3" step="1" value="2" style="flex:1"><span class="mono" id="storeysV">2 (G+1)</span></div>
+    <div class="row"><label for="sh">Storey height</label><input type="range" id="sh" min="3" max="4.5" step="0.1" value="3.5" style="flex:1"><span class="mono" id="shV">3.5 m</span></div>
+    <h3>Sun and shadows</h3>
+    <div class="row"><label for="date">Date</label><input type="date" id="date" style="flex:1"></div>
+    <div class="row"><label for="hour">Hour (Dubai)</label><input type="range" id="hour" min="5" max="19" step="0.25" value="15" style="flex:1"><span class="mono" id="hourV">15:00</span></div>
+    <div class="row"><button id="play">Play the day</button><label><input type="checkbox" id="shadows" checked> shadows</label></div>
+    <div class="kv">
+      <div>Plot centre</div><div class="mono" id="centre"></div>
+      <div>Sun</div><div class="mono" id="sun"></div>
+      <div>Shadow length</div><div class="mono" id="shadow"></div>
+      <div>Entrances</div><div class="mono" id="dm"></div>
+    </div>
+    <h3>Data sources</h3>
+    <div class="note">Basemap, displayed live and never cached: with Cesium ion, Cesium World Terrain, Bing Maps aerial imagery and Cesium OSM Buildings (OpenStreetMap-derived, white blocks with heights only where OSM has them, so thin in villa communities); with Google, Photorealistic 3D Tiles where Google has them (not the UAE on the coverage page dated 2026-10-27), nothing extracted or traced from them. Plot outlines: OpenStreetMap (ODbL), fetched 2026-10-28. Entrance points with Makani and DLTM: Dubai Municipality open data, Entrances layer ENTERANCES_20260815 (Data Dubai Open Data Licence). The massing block, circles and labels are w3turn overlays computed from those sources. No client data.</div>
+    <div class="warn" id="warn" hidden></div>
+  </aside>
+</main>
+<script>window.CESIUM_BASE_URL="https://cdn.jsdelivr.net/npm/cesium@1.130.0/Build/Cesium/";</script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.130.0/Build/Cesium/Cesium.js"></script>
+<script>
+(async function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const rad=d=>d*Math.PI/180,deg=r=>r*180/Math.PI;
+// ---- data ----
+let DATA=null;try{DATA=await (await fetch("../m1-context-locations.json")).json()}catch(e){$("#warn").hidden=false;$("#warn").textContent="Could not load ../m1-context-locations.json (open this page over http(s), not file://).";return}
+let LOC=DATA.locations[0];
+// ---- NOAA sun (same equations as the walkthrough) ----
+function sunPos(dateUTC,latDeg,lonDeg){const JD=dateUTC.getTime()/86400000+2440587.5,T=(JD-2451545)/36525;
+  const L0=(280.46646+T*(36000.76983+T*0.0003032))%360,M=357.52911+T*(35999.05029-0.0001537*T),e=0.016708634-T*(0.000042037+0.0000001267*T);
+  const C=Math.sin(rad(M))*(1.914602-T*(0.004817+0.000014*T))+Math.sin(rad(2*M))*(0.019993-0.000101*T)+Math.sin(rad(3*M))*0.000289;
+  const trueLong=L0+C,omega=125.04-1934.136*T,appLong=trueLong-0.00569-0.00478*Math.sin(rad(omega));
+  const obl0=23+(26+(21.448-T*(46.815+T*(0.00059-T*0.001813)))/60)/60,obl=obl0+0.00256*Math.cos(rad(omega));
+  const decl=Math.asin(Math.sin(rad(obl))*Math.sin(rad(appLong)));const y=Math.tan(rad(obl/2))**2;
+  const eqT=4*deg(y*Math.sin(2*rad(L0))-2*e*Math.sin(rad(M))+4*e*y*Math.sin(rad(M))*Math.cos(2*rad(L0))-0.5*y*y*Math.sin(4*rad(L0))-1.25*e*e*Math.sin(2*rad(M)));
+  const minutesUTC=dateUTC.getUTCHours()*60+dateUTC.getUTCMinutes()+dateUTC.getUTCSeconds()/60;let tst=(minutesUTC+eqT+4*lonDeg)%1440;if(tst<0)tst+=1440;const ha=tst/4<0?tst/4+180:tst/4-180;
+  const lat=rad(latDeg);const cosZ=Math.sin(lat)*Math.sin(decl)+Math.cos(lat)*Math.cos(decl)*Math.cos(rad(ha));const zen=Math.acos(Math.max(-1,Math.min(1,cosZ)));
+  let az;const den=Math.cos(lat)*Math.sin(zen);if(Math.abs(den)<1e-9)az=180;else{const v=Math.max(-1,Math.min(1,((Math.sin(lat)*Math.cos(zen))-Math.sin(decl))/den));az=ha>0?(deg(Math.acos(v))+180)%360:(540-deg(Math.acos(v)))%360}
+  return {az,el:90-deg(zen)}}
+const hhmm=h=>`${String(Math.floor(h)).padStart(2,"0")}:${String(Math.round((h%1)*60)).padStart(2,"0")}`;
+const state={hour:15,storeys:2,sh:3.5,playing:null,ground:null};
+$("#date").value=new Date(Date.now()+4*3600000).toISOString().slice(0,10);
+function dubaiUTC(){const [y,m,d]=$("#date").value.split("-").map(Number);return new Date(Date.UTC(y,m-1,d,0,0,0)+(state.hour-4)*3600000)}
+// ---- viewer ----
+let viewer=null,tileset=null,ents=[];
+function centroid(ring){let A=0,cx=0,cy=0;for(let i=0;i<ring.length-1;i++){const [x1,y1]=ring[i],[x2,y2]=ring[i+1];const f=x1*y2-x2*y1;A+=f;cx+=(x1+x2)*f;cy+=(y1+y2)*f}A/=2;return [cx/(6*A),cy/(6*A)]}
+function plotRing(loc){const w=loc.ways.find(x=>x.id===loc.plot_way);return w?w.g:[[loc.centre[0],loc.centre[1]],[loc.centre[0],loc.centre[1]],[loc.centre[0],loc.centre[1]],[loc.centre[0],loc.centre[1]]]}
+async function groundHeight(lon,lat){if(!viewer)return null;try{if(viewer.scene.globe&&viewer.terrainProvider){const r=await Cesium.sampleTerrainMostDetailed(viewer.terrainProvider,[Cesium.Cartographic.fromDegrees(lon,lat)]);if(r[0]&&isFinite(r[0].height))return r[0].height}if(viewer.scene.sampleHeightSupported){const h=await viewer.scene.sampleHeightMostDetailed([Cesium.Cartographic.fromDegrees(lon,lat)]);return h[0]?h[0].height:null}}catch(e){}return null}
+async function drawOverlays(){if(!viewer)return;ents.forEach(e=>viewer.entities.remove(e));ents=[];const ring=plotRing(LOC);const [clon,clat]=centroid(ring);
+  let g=await groundHeight(clon,clat);if(g==null)g=state.ground??0;state.ground=g;const base=g+0.3;const h=state.storeys*state.sh;
+  ents.push(viewer.entities.add({polygon:{hierarchy:Cesium.Cartesian3.fromDegreesArray(ring.flat()),height:base,material:Cesium.Color.fromCssColorString("#13406b").withAlpha(0.25),outline:true,outlineColor:Cesium.Color.fromCssColorString("#13406b"),outlineWidth:2}}));
+  if(h>0)ents.push(viewer.entities.add({polygon:{hierarchy:Cesium.Cartesian3.fromDegreesArray(ring.flat()),height:base,extrudedHeight:base+h,material:Cesium.Color.fromCssColorString("#f3e9d8").withAlpha(0.85),outline:true,outlineColor:Cesium.Color.fromCssColorString("#7a6a4a"),shadows:Cesium.ShadowMode.ENABLED}}));
+  [50,100].forEach(r=>ents.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(clon,clat,base),ellipse:{semiMajorAxis:r,semiMinorAxis:r,height:base,fill:false,outline:true,outlineColor:Cesium.Color.fromCssColorString("#c0392b"),outlineWidth:2}})));
+  ents.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(clon,clat,base+h+2),point:{pixelSize:8,color:Cesium.Color.fromCssColorString("#13406b")},label:{text:`plot centre · ${h.toFixed(1)} m massing [assumption]`,font:"12px sans-serif",pixelOffset:new Cesium.Cartesian2(0,-16),fillColor:Cesium.Color.BLACK,showBackground:true,backgroundColor:Cesium.Color.fromCssColorString("#fffdf9").withAlpha(0.9)}}));
+  let n=0;for(const q of LOC.dm_entrances){if(q.d>170)continue;n++;let gh=await groundHeight(q.g[0],q.g[1]);if(gh==null)gh=g;
+    ents.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(q.g[0],q.g[1],gh+1.5),point:{pixelSize:9,color:Cesium.Color.fromCssColorString("#d98a1a"),outlineColor:Cesium.Color.BLACK,outlineWidth:1},label:{text:q.makani||"",font:"11px monospace",pixelOffset:new Cesium.Cartesian2(0,-14),fillColor:Cesium.Color.BLACK,showBackground:true,backgroundColor:Cesium.Color.fromCssColorString("#fff3df").withAlpha(0.9),scaleByDistance:new Cesium.NearFarScalar(100,1,600,0.4)},description:`DM entrance ${q.id}, Makani ${q.makani}, DLTM E ${q.dltm?q.dltm[0].toFixed(3):"?"} N ${q.dltm?q.dltm[1].toFixed(3):"?"}`}))}
+  $("#dm").textContent=`${n} DM entrance points within 170 m (${LOC.dm_communities.join(", ")||"community not stated"})`;
+  $("#centre").textContent=`${clat.toFixed(6)}° N, ${clon.toFixed(6)}° E · ground ${g.toFixed(1)} m (sampled from the tiles)`;updateSun()}
+function updateSun(){const t=dubaiUTC();const ring=plotRing(LOC);const [clon,clat]=centroid(ring);const p=sunPos(t,clat,clon);
+  if(viewer){viewer.clock.currentTime=Cesium.JulianDate.fromDate(t);viewer.scene.requestRender()}
+  $("#sun").textContent=`${$("#date").value} ${hhmm(state.hour)} · azimuth ${p.az.toFixed(1)}° · elevation ${p.el.toFixed(1)}°${p.el<=0?" (night)":""}`;
+  const h=state.storeys*state.sh;$("#shadow").textContent=p.el>0?`${(h/Math.tan(rad(p.el))).toFixed(1)} m for a ${h.toFixed(1)} m block, towards ${((p.az+180)%360).toFixed(0)}°`:"none"}
+function flyTo(){if(!viewer)return;const ring=plotRing(LOC);const [clon,clat]=centroid(ring);viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(clon,clat-0.0028,(state.ground||0)+260),orientation:{heading:0,pitch:Cesium.Math.toRadians(-38),roll:0},duration:1.5})}
+async function load(){const key=$("#key").value.trim();const prov=document.querySelector('input[name="prov"]:checked').value;if(!key){$("#status").textContent="token or key missing";return}
+  try{localStorage.setItem("gm_key_"+prov,key)}catch(e){}
+  $("#status").textContent="loading…";$("#warn").hidden=true;
+  try{
+    if(viewer){viewer.destroy();viewer=null;tileset=null;ents=[]}
+    if(prov==="ion"){Cesium.Ion.defaultAccessToken=key;
+      viewer=new Cesium.Viewer("c",{terrain:Cesium.Terrain.fromWorldTerrain(),geocoder:false,baseLayerPicker:false,sceneModePicker:false,timeline:false,animation:false,navigationHelpButton:false,homeButton:false,fullscreenButton:true,infoBox:true,selectionIndicator:true,shadows:$("#shadows").checked,requestRenderMode:true,maximumRenderTimeChange:Infinity});
+      viewer.scene.globe.depthTestAgainstTerrain=true;
+      const osm=await Cesium.createOsmBuildingsAsync();osm.shadows=Cesium.ShadowMode.ENABLED;viewer.scene.primitives.add(osm);tileset=osm;
+      $("#sources").textContent="Data sources: terrain, aerial imagery and OSM buildings streamed from Cesium ion (credits below); overlays by w3turn from Dubai Municipality open data (entrances) and OpenStreetMap (plot outline)."}
+    else{Cesium.GoogleMaps.defaultApiKey=key;
+      viewer=new Cesium.Viewer("c",{globe:false,baseLayer:false,geocoder:false,baseLayerPicker:false,sceneModePicker:false,timeline:false,animation:false,navigationHelpButton:false,homeButton:false,fullscreenButton:true,infoBox:true,selectionIndicator:true,shadows:$("#shadows").checked,requestRenderMode:true,maximumRenderTimeChange:Infinity,skyAtmosphere:new Cesium.SkyAtmosphere()});
+      tileset=await Cesium.createGooglePhotorealistic3DTileset();tileset.shadows=Cesium.ShadowMode.ENABLED;viewer.scene.primitives.add(tileset);
+      $("#sources").textContent="Data sources: 3D tiles and imagery by Google Maps (attribution below); overlays by w3turn from Dubai Municipality open data (entrances) and OpenStreetMap (plot outline)."}
+    viewer.scene.light=new Cesium.SunLight();viewer.shadowMap.softShadows=true;viewer.shadowMap.size=2048;viewer.clock.shouldAnimate=false;$("#sources").hidden=false;
+    $("#status").textContent="loaded ("+prov+")";flyTo();setTimeout(drawOverlays,2000)}
+  catch(e){$("#status").textContent="failed";$("#warn").hidden=false;$("#warn").textContent="The basemap did not load: "+(e&&e.message?e.message:e)+". Check the token or key, the enabled APIs and the domain restriction."}}
+// ---- UI ----
+function renderLocs(){const c=$("#locs");c.innerHTML="";DATA.locations.forEach(l=>{const b=document.createElement("button");b.textContent=l.name;b.className=l.key===LOC.key?"primary":"";b.addEventListener("click",()=>{LOC=l;renderLocs();state.ground=null;flyTo();drawOverlays()});c.appendChild(b)})}
+renderLocs();
+$("#makaniGo").addEventListener("click",()=>{const q=$("#makani").value.replace(/\s+/g," ").trim();for(const l of DATA.locations){const hit=l.dm_entrances.find(e=>e.makani===q);if(hit){LOC=l;renderLocs();state.ground=null;drawOverlays().then(()=>{if(viewer)viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(hit.g[0],hit.g[1]-0.0012,(state.ground||0)+120),orientation:{heading:0,pitch:Cesium.Math.toRadians(-40),roll:0}})});$("#status").textContent="Makani found in "+l.name;return}}$("#status").textContent="Makani not among the points held for the three areas"});
+$("#load").addEventListener("click",load);
+$("#forget").addEventListener("click",()=>{const prov=document.querySelector('input[name="prov"]:checked').value;try{localStorage.removeItem("gm_key_"+prov)}catch(e){}$("#key").value="";$("#status").textContent="forgotten"});
+$("#storeys").addEventListener("input",e=>{state.storeys=parseInt(e.target.value,10);$("#storeysV").textContent=state.storeys?`${state.storeys} (G+${state.storeys-1})`:"none";drawOverlays()});
+$("#sh").addEventListener("input",e=>{state.sh=parseFloat(e.target.value);$("#shV").textContent=state.sh.toFixed(1)+" m";drawOverlays()});
+$("#date").addEventListener("change",updateSun);
+$("#hour").addEventListener("input",e=>{state.hour=parseFloat(e.target.value);$("#hourV").textContent=hhmm(state.hour);updateSun()});
+$("#shadows").addEventListener("change",e=>{if(viewer){viewer.shadows=e.target.checked;viewer.scene.requestRender()}});
+$("#play").addEventListener("click",()=>{if(state.playing){clearInterval(state.playing);state.playing=null;$("#play").textContent="Play the day";return}$("#play").textContent="Stop";state.hour=5;state.playing=setInterval(()=>{state.hour+=0.25;if(state.hour>19)state.hour=5;$("#hour").value=state.hour;$("#hourV").textContent=hhmm(state.hour);updateSun()},150)});
+function provChanged(){const prov=document.querySelector('input[name="prov"]:checked').value;$("#provNote").textContent=prov==="ion"?"Cesium ion access token: create a free account at cesium.com, copy the default token. The token stays in this browser only.":"Google Maps Platform key with the Map Tiles API enabled and restricted to this domain; one root tileset request per load is the billable event. The key stays in this browser only.";try{const k=localStorage.getItem("gm_key_"+prov);$("#key").value=k||"";$("#status").textContent=k?"remembered; press Load":"idle"}catch(e){}}
+document.querySelectorAll('input[name="prov"]').forEach(r=>r.addEventListener("change",provChanged));provChanged();
+updateSun();
+})();
+</script>
+</body>
+</html>
