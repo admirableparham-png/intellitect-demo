@@ -145,6 +145,8 @@ $("#play").addEventListener("click",()=>{if(state.playing){clearInterval(state.p
 function provChanged(){const prov=document.querySelector('input[name="prov"]:checked').value;$("#provNote").textContent=prov==="ion"?"Cesium ion access token: create a free account at cesium.com, copy the default token. The token stays in this browser only.":"Google Maps Platform key with the Map Tiles API enabled and restricted to this domain; one root tileset request per load is the billable event. The key stays in this browser only.";try{const k=localStorage.getItem("gm_key_"+prov);$("#key").value=k||"";$("#status").textContent=k?"remembered; press Load":"idle"}catch(e){}}
 document.querySelectorAll('input[name="prov"]').forEach(r=>r.addEventListener("change",provChanged));provChanged();
 updateSun();
+// A remembered token loads the map at once (no second click after a reload).
+if($("#key").value.trim()){$("#status").textContent="remembered; loading";load()}
 })();
 </script>
 </body>
