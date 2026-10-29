@@ -41,7 +41,7 @@ section.step{padding-block:36px;border-bottom:1px solid var(--line);display:grid
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .cols>*{min-width:0}
 @media (max-width:820px){.cols{grid-template-columns:1fr}}
-.panel{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px 16px;display:grid;gap:10px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px 16px;display:grid;gap:10px;align-content:start}
 .panel h3{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -63,7 +63,7 @@ button{font-family:var(--body);font-size:.82rem;padding:5px 10px;border-radius:3
 button.primary{background:var(--accent);color:var(--accent-ink)}
 button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 button[disabled]{opacity:.5;cursor:default}
-.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;align-content:flex-start}
 svg{max-width:100%;height:auto;display:block}
 .plan{background:var(--plan);border:1px solid var(--line-strong);border-radius:3px;padding:6px}
 .plan text{font-family:var(--mono);fill:var(--plan-ink)}
@@ -629,7 +629,6 @@ function renderContext(){
   CONTEXT.nodes.forEach(n=>{const p=projLL(n.g[0],n.g[1]);const x=X(p[0]),y=Y(p[1]);const e=el("circle",{cx:x,cy:y,r:4,fill:n.t.entrance?"var(--ok)":"var(--muted)",stroke:"var(--paper)"});e.style.cursor="pointer";e.addEventListener("click",pick(`${n.t.entrance?"OSM entrance ("+n.t.entrance+")":n.t.amenity||n.t.shop}${n.t.name?" · "+n.t.name:""} · ${polyDist(p,ring).toFixed(1)} m from the plot boundary`));g.appendChild(e)});
   // scale and north
   s.appendChild(el("line",{x1:30,y1:500,x2:30+50*sc,y2:500,stroke:"var(--fg)","stroke-width":"2"}));s.appendChild(el("text",{x:30,y:494,"font-size":"10",fill:"var(--fg)"},"50 m"));
-  s.appendChild(el("text",{x:480,y:30,"font-size":"12",fill:"var(--fg)"},"N ↑"));
   // right panel
   const [clat,clon]=tmInverse(cx,cy);$("#ctxCentre").textContent=`DLTM E ${fmt(cx,3)}  N ${fmt(cy,3)} · ${deg(clat).toFixed(6)}° N, ${deg(clon).toFixed(6)}° E (derived) · area centroid of the outline`;
   $("#ctxArea").textContent=`${fmt(Math.abs(A))} m² · ${fmt(per)} m`;
