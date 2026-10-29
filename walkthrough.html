@@ -195,7 +195,7 @@ input[type=range]{width:100%}
   <p>This is the view Amir Hossein asked for: the plot with its exact coordinates, its centre and the circle around it, which streets border it, what stands next to it, and where the entrance is. The fictional plot has no real surroundings, so this step uses real public plots (mosque buildings) in three areas with open data: OpenStreetMap for streets and buildings, and Dubai Municipality's open Entrances layer for the official entrance points with their Makani numbers and DLTM coordinates. Switch between Al Barsha Second, where OSM is nearly complete, and two first-segment areas, where it is thin, to see what the engine can and cannot say.</p></div>
   <div class="cols">
     <div class="panel">
-      <h3>Map, local metres around the plot centre <span class="tag">north up · click a street, building or entrance</span></h3>
+      <h3>Map, local metres around the plot centre <span class="tag">grid north up (EPSG:3997; true north differs by under 0.1° here [inference]) · click a street, building or entrance</span></h3>
       <div class="row" id="locPicker"></div>
       <div class="row"><label for="makaniIn" class="small">Makani lookup (official entrance points held for the three areas):</label><input type="text" id="makaniIn" placeholder="e.g. 19060 78122" style="width:160px"><button id="makaniGo">Find</button><span class="small" id="makaniOut"></span></div>
       <svg id="ctxSvg" viewBox="0 0 520 520" role="img" aria-label="Context map within 100 metres of the plot"></svg>
@@ -601,6 +601,10 @@ function renderContext(){
   s.appendChild(el("clipPath",{id:"ctxClip"})).appendChild(el("circle",{cx:260,cy:260,r:255}));
   s.appendChild(el("circle",{cx:260,cy:260,r:255,fill:"var(--paper)",stroke:"var(--line)"}));
   const g=el("g",{"clip-path":"url(#ctxClip)"});s.appendChild(g);
+  // compass rose: the map is grid-north up (EPSG:3997); true north differs by under 0.1 degrees here [inference]
+  const rose=el("g",{transform:"translate(466 54)"});s.appendChild(rose);rose.appendChild(el("circle",{cx:0,cy:0,r:26,fill:"var(--paper)",stroke:"var(--line)"}));
+  rose.appendChild(el("path",{d:"M0 -22 L6 0 L0 -4 L-6 0 Z",fill:"#13406b"}));rose.appendChild(el("path",{d:"M0 22 L6 0 L0 4 L-6 0 Z",fill:"none",stroke:"#13406b"}));
+  [["N",0,-30],["S",0,38],["E",34,4],["W",-34,4]].forEach(([t,x,y])=>{const e=el("text",{x,y,"text-anchor":"middle","font-size":"11","font-weight":"600",fill:"#13406b"});e.textContent=t;rose.appendChild(e)});
   const sel=$("#ctxSel");const pick=(txt)=>()=>{sel.textContent=txt};
   const pathOf=p=>p.map((q,i)=>(i?"L":"M")+X(q[0]).toFixed(1)+" "+Y(q[1]).toFixed(1)).join(" ");
   ways.filter(w=>w.t.landuse||w.t.leisure).forEach(w=>{const e=el("path",{d:pathOf(w.p)+"Z",fill:"var(--sel)","fill-opacity":"0.5",stroke:"none"});e.addEventListener("click",pick(`${w.t.leisure||w.t.landuse}${w.t.name?" · "+w.t.name:""} (OSM way ${w.id})`));g.appendChild(e)});
@@ -687,7 +691,14 @@ function build3D(){if(!three)return;const g=three.group;while(g.children.length)
     m3d.subject={pts:r0.concat([r0[0]]),h};const [la,lo]=tmInverse(cx,cy);m3d.latlon=[deg(la),deg(lo)];
     const dmPts=CONTEXT.dm_entrances.points.map(q=>{const p=projLL(q.g[0],q.g[1]);return [p[0]-cx,p[1]-cy]}).filter(q=>Math.hypot(q[0],q[1])<=170);dmPts.forEach(q=>{const m=new THREE.Mesh(new THREE.ConeGeometry(1.2,3,8),new THREE.MeshLambertMaterial({color:0xd98a1a}));m.position.set(q[0],1.5,-q[1]);g.add(m)});
     $("#m3dNeigh").textContent=`${tagged+untagged} buildings within 170 m from OSM: ${tagged} with tagged levels, ${untagged} at the assumed height [assumption]; ${dmPts.length} DM entrance points shown as cones (${CONTEXT.name}).`;if(three.orbit.r<180)three.orbit.r=220}
+  g.add(compass3D(m3d.mode==="fictional"?[26,-10]:[70,-70],m3d.mode==="fictional"?10:22));
   updateSun3D()}
+// north arrow on the ground: at=[east, north] metres from the plot centre; scene north is -z
+function compass3D(at,size){const g=new THREE.Group();const [x,n]=at;const col=0x13406b;
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(size*0.04,size*0.04,size,8),new THREE.MeshLambertMaterial({color:col}));shaft.rotation.x=-Math.PI/2;shaft.position.set(x,0.3,-n);g.add(shaft);
+  const head=new THREE.Mesh(new THREE.ConeGeometry(size*0.14,size*0.35,12),new THREE.MeshLambertMaterial({color:col}));head.rotation.x=-Math.PI/2;head.position.set(x,0.3,-(n+size/2+size*0.17));g.add(head);
+  const lab=(t,dn)=>{const c=document.createElement("canvas");c.width=c.height=128;const k=c.getContext("2d");k.fillStyle="#fffdf9";k.beginPath();k.arc(64,64,56,0,Math.PI*2);k.fill();k.fillStyle="#13406b";k.font="bold 84px sans-serif";k.textAlign="center";k.textBaseline="middle";k.fillText(t,64,68);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));sp.scale.set(size*0.45,size*0.45,1);sp.position.set(x,size*0.3,-(n+dn));g.add(sp)};
+  lab("N",size*0.5+size*0.5);lab("S",-(size*0.5+size*0.3));return g}
 function sunVec(p){const e=Math.sin(rad(p.az))*Math.cos(rad(p.el)),u=Math.sin(rad(p.el)),n=Math.cos(rad(p.az))*Math.cos(rad(p.el));return [e,u,n]}
 function dubaiToUTC(dateStr,hour){const [y,m,d]=dateStr.split("-").map(Number);return new Date(Date.UTC(y,m-1,d,0,0,0)+(hour-4)*3600000)}
 function hhmm(h){return `${String(Math.floor(h)).padStart(2,"0")}:${String(Math.round((h%1)*60)).padStart(2,"0")}`}
